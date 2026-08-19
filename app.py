@@ -1,4 +1,98 @@
 import streamlit as st
+from supabase import create_client, Client
+
+st.set_page_config(page_title="Excel Automation Toolkit", layout="wide")
+
+# ১. সুপাবেস ডাটাবেস কানেকশন (Supabase URL & Key এখানে বসাবেন)
+SUPABASE_URL = "https://your-supabase-url.supabase.co"
+SUPABASE_KEY = "your-supabase-anon-key"
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# সেশন স্টেট সেটআপ
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+# ========================================================
+# ল্যান্ডিং পেজ এবং একাউন্ট / লগইন সেকশন
+# ========================================================
+if not st.session_state.user:
+    st.title("📊 Premium Excel Automation Tool")
+    st.write("স্বাগতম! আপনার এক্সেল টাস্কগুলো মুহূর্তের মধ্যে অটোমেট করুন।")
+    
+    st.info("""
+    ### 🌟 কী কী করতে পারবেন এই অ্যাপ দিয়ে:
+    * একাধিক এক্সেল ফাইল ১ ক্লিকে মার্জ ও ফিল্টার করতে পারবেন।
+    * নির্ভুল ডেটা প্রসেসিং ও অটোমেটিক রিপোর্ট তৈরি।
+    """)
+    st.markdown("---")
+    
+    tab1, tab2 = st.tabs(["🔑 Login", "📝 Create Account"])
+    
+    # রেজিস্টার (Sign Up)
+    with tab2:
+        st.subheader("Create a New Account")
+        new_email = st.text_input("Email", key="reg_email")
+        new_pass = st.text_input("Password", type="password", key="reg_pass")
+        
+        if st.button("Sign Up"):
+            if new_email and new_pass:
+                try:
+                    # সুপাবেসে নতুন ইউজার রেজিস্টার
+                    res = supabase.auth.sign_up({"email": new_email, "password": new_pass})
+                    # ডাটাবেসে পারমিশন স্ট্যাটাস ডিফল্ট False রাখা (Unpaid)
+                    supabase.table("users_permission").insert({"email": new_email, "is_paid": False}).execute()
+                    st.success("Account created successfully! Please login now.")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+            else:
+                st.warning("Please fill all fields.")
+
+    # লগইন (Login)
+    with tab1:
+        st.subheader("Login to Your Account")
+        email = st.text_input("Email", key="log_email")
+        password = st.text_input("Password", type="password", key="log_pass")
+        
+        if st.button("Login"):
+            try:
+                res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                st.session_state.user = email
+                st.rerun()
+            except Exception as e:
+                st.error("Invalid Email or Password!")
+
+    st.stop() # লগইন না করা পর্যন্ত নিচের পার্ট লোড হবে না
+
+# ========================================================
+# অংশ ৩: পারমিশন চেক সেকশন (যাদের এক্সেস দেওয়া হয়নি)
+# ========================================================
+user_email = st.session_state.user
+
+# ডাটাবেস থেকে চেক করা ইউজার Paid কিনা
+permission_data = supabase.table("users_permission").select("is_paid").eq("email", user_email).execute()
+is_paid_user = False
+
+if permission_data.data:
+    is_paid_user = permission_data.data[0]["is_paid"]
+
+if not is_paid_user:
+    st.title("🔒 Purchase Required")
+    st.warning("You need to purchase access to use the features of this tool.")
+    
+    st.write("### 📞 How to Get Access:")
+    st.write("Please contact us with your registered email address (**" + user_email + "**):")
+    st.write("📧 **Email:** your-email@gmail.com")
+    st.write("💬 **WhatsApp:** +88017XXXXXXXX")
+    
+    if st.button("Logout"):
+        st.session_state.user = None
+        st.rerun()
+        
+    st.stop() # টাকা না দিলে মূল কোড লোড হবে না
+
+
+
+import streamlit as st
 import pandas as pd
 import io
 
@@ -129,3 +223,13 @@ with tab5:
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
                     df_add.to_excel(writer, index=False)
                 st.download_button(label="📥 প্রসেসড ফাইল ডাউনলোড", data=output.getvalue(), file_name="added_column_file.xlsx")
+
+
+
+st.sidebar.write(f"Logged in as: **{user_email}**")
+if st.sidebar.button("Logout"):
+    st.session_state.user = None
+    st.rerun()
+
+st.title("🚀 Welcome to Your Excel Workspace")
+st.success("Access Granted! You can now use all features.")
