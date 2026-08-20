@@ -12,7 +12,9 @@ def init_supabase() -> Client:
     url = "https://bbumvgafipsrmwuvswug.supabase.co"
     key = "Sb_publishable_Gkco1lUGPxGeHzXN4f6Veg_tyGcqJAi"
     return create_client(url, key)
+    supabase = init_supabase()
 
+ 
 # সেশন স্টেট সেটআপ
 if "user" not in st.session_state:
     st.session_state.user = None
