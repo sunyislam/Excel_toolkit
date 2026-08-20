@@ -7,11 +7,14 @@ from supabase import create_client, Client
 st.set_page_config(page_title="Excel Automation Toolkit", layout="wide")
 
 # ১. সুপাবেস ডাটাবেস কানেকশন (Supabase URL & Key এখানে বসাবেন)
+# ১. সুপাবেস ডাটাবেস কানেকশন
 @st.cache_resource
 def init_supabase() -> Client:
-    url = "https://bbumvgafipsrmwuvswug.supabase.co"
-    key = "Sb_publishable_Gkco1lUGPxGeHzXN4f6Veg_tyGcqJAi"
+    # URL এর শেষে কোনো এক্সট্রা স্পেস বা স্ল্যাশ রাখা যাবে না
+    url = "https://bbumvgafipsrmwuvswug.supabase.co".strip()
+    key = "Sb_publishable_Gkco1lUGPxGeHzXN4f6Veg_tyGcqJAi".strip()
     return create_client(url, key)
+
 supabase = init_supabase()
 
  
