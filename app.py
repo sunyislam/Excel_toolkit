@@ -11,8 +11,8 @@ st.set_page_config(page_title="Excel Automation Toolkit", layout="wide")
 @st.cache_resource
 def init_supabase() -> Client:
     # URL এর শেষে কোনো এক্সট্রা স্পেস বা স্ল্যাশ রাখা যাবে না
-    url = "https://bbumvqafipsrmwuvswug.supabase.co/rest/v1/".strip()
-    key = "sb_publishable_Gkco1lUGPxGeHzXN4f6Veg_tyGcqJAi".strip()
+    url = st.secrets("https://bbumvqafipsrmwuvswug.supabase.co/rest/v1/")
+    key = st.secrets("sb_publishable_Gkco1lUGPxGeHzXN4f6Veg_tyGcqJAi")
     return create_client(url, key)
 
 supabase = init_supabase()
