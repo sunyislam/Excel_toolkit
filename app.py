@@ -39,34 +39,29 @@ if not st.session_state.user:
     
     tab1, tab2 = st.tabs(["🔑 Login", "📝 Create Account"])
     
-    # রেজিস্টার (Sign Up)
+    # রেজিস্টার (Sign Up form)
     with tab2:
-    # রেজিস্টার (Sign Up)
-with tab2:
-    st.subheader("Create a New Account")
-    
-    # st.form ব্যবহার করলে বাটন ক্লিকের পর পেজ আটকে থাকে না
-    with st.form("signup_form"):
-        new_email = st.text_input("Email")
-        new_pass = st.text_input("Password", type="password")
-        submit_button = st.form_submit_button("Sign Up")
+        st.subheader("Create a New Account")
         
-        if submit_button:
-            if new_email and new_pass:
-                try:
-                    # ১. সুপাবেস অথেন্টিকেশন
-                    res = supabase.auth.sign_up({"email": new_email, "password": new_pass})
-                    
-                    # ২. পারমিশন টেবিলে ডেটা ইনসার্ট
-                    supabase.table("users_permission").insert({"email": new_email, "is_paid": False}).execute()
-                    
-                    st.success("✅ Account created successfully! Please go to Login tab.")
-                except Exception as e:
-                    # স্ক্রিনে সঠিক আসল এরর মেসেজটি দেখাবে
-                    st.error(f"Sign up failed: {str(e)}")
-            else:
-                st.warning("Please fill in all fields.")
-
+        with st.form("signup_form"):
+            new_email = st.text_input("Email")
+            new_pass = st.text_input("Password", type="password")
+            submit_button = st.form_submit_button("Sign Up")
+            
+            if submit_button:
+                if new_email and new_pass:
+                    try:
+                        # ১. সুপাবেস অথেন্টিকেশন
+                        res = supabase.auth.sign_up({"email": new_email, "password": new_pass})
+                        
+                        # ২. পারমিশন টেবিলে ডেটা ইনসার্ট (ডিফল্ট Unpaid)
+                        supabase.table("users_permission").insert({"email": new_email, "is_paid": False}).execute()
+                        
+                        st.success("✅ Account created successfully! Please go to Login tab.")
+                    except Exception as e:
+                        st.error(f"Sign up failed: {str(e)}")
+                else:
+                    st.warning("Please fill in all fields.")
 
     # লগইন (Login)
     with tab1:
