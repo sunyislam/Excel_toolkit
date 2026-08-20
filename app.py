@@ -9,10 +9,11 @@ st.set_page_config(page_title="Excel Automation Toolkit", layout="wide")
 # ১. সুপাবেস ডাটাবেস কানেকশন (Supabase URL & Key এখানে বসাবেন)
 # ১. সুপাবেস ডাটাবেস কানেকশন
 @st.cache_resource
+# ১. সুপাবেস ডাটাবেস কানেকশন (Streamlit Secrets থেকে রিড করবে)
+@st.cache_resource
 def init_supabase() -> Client:
-    # URL এর শেষে কোনো এক্সট্রা স্পেস বা স্ল্যাশ রাখা যাবে না
-    url = st.secrets("https://bbumvqafipsrmwuvswug.supabase.co/rest/v1/")
-    key = st.secrets("sb_publishable_Gkco1lUGPxGeHzXN4f6Veg_tyGcqJAi")
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
     return create_client(url, key)
 
 supabase = init_supabase()
