@@ -1,5 +1,4 @@
-SUPABASE_URL = "https://bbumvgafipsrmwuvswug.supabase.co"
-SUPABASE_KEY = "Sb_publishable_Gkco1lUGPxGeHzXN4f6Veg_tyGcqJAi"
+
 
 
 import streamlit as st
@@ -8,9 +7,11 @@ from supabase import create_client, Client
 st.set_page_config(page_title="Excel Automation Toolkit", layout="wide")
 
 # ১. সুপাবেস ডাটাবেস কানেকশন (Supabase URL & Key এখানে বসাবেন)
-SUPABASE_URL = "https://your-supabase-url.supabase.co"
-SUPABASE_KEY = "your-supabase-anon-key"
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+@st.cache_resource
+def init_supabase() -> Client:
+    url = "https://bbumvgafipsrmwuvswug.supabase.co"
+    key = "Sb_publishable_Gkco1lUGPxGeHzXN4f6Veg_tyGcqJAi"
+    return create_client(url, key)
 
 # সেশন স্টেট সেটআপ
 if "user" not in st.session_state:
