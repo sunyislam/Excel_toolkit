@@ -1,4 +1,4 @@
-SUPABASE_URL = "https://bbumvqafipsrmwuvswug.supabase.co"
+SUPABASE_URL = "https://bbumvgafipsrmwuvswug.supabase.co"
 SUPABASE_KEY = "Sb_publishable_Gkco1lUGPxGeHzXN4f6Veg_tyGcqJAi"
 
 
