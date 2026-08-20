@@ -1,3 +1,7 @@
+SUPABASE_URL = "https://bbumvqafipsrmwuvswug.supabase.co"
+SUPABASE_KEY = "Sb_publishable_Gkco1lUGPxGeHzXN4f6Veg_tyGcqJAi"
+
+
 import streamlit as st
 from supabase import create_client, Client
 
