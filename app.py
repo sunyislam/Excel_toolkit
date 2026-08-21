@@ -169,11 +169,11 @@ def load_data(file):
         return None
     file_name = file.name.lower()
     try:
+        file.seek(0)
         if file_name.endswith('.csv'):
             return pd.read_csv(file)
         elif file_name.endswith(('.xlsx', '.xls')):
-            # engine='openpyxl' ব্যবহার নিশ্চিত করা
-            return pd.read_excel(file, engine='openpyxl')
+            return pd.read_excel(io.BytesIO(file.getvalue()), engine='openpyxl')
         elif file_name.endswith('.pdf'):
             all_tables = []
             with pdfplumber.open(file) as pdf:
@@ -186,8 +186,12 @@ def load_data(file):
             if all_tables:
                 return pd.concat(all_tables, ignore_index=True)
             else:
-                st.error("⚠️ No tabular data found in PDF.")
+                st.error("No tabular data found in PDF.")
                 return None
+    except Exception as e:
+        st.error(f"Error reading file '{file.name}': {e}")
+        return None
+
     except Exception as e:
         st.error(f"Error reading file '{file.name}': {e}")
         return None
