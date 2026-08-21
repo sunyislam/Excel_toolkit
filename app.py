@@ -111,135 +111,370 @@ if not is_paid_user:
 import streamlit as st
 import pandas as pd
 import io
+import pdfplumber
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.lib import colors
 
-# ওয়েবসাইটের লেআউট ও টাইটেল সেটআপ
-st.set_page_config(page_title="Excel Automation Tool", layout="wide")
+# --- Page Configuration & Styling ---
+st.set_page_config(
+    page_title="DataToolkit Pro",
+    page_icon="📊",
+    layout="wide"
+)
 
-st.title("📊 অল-ইন-ওয়ান এক্সেল অটোমেশন টুল")
-st.write("আপনার প্রয়োজনীয় অপশনটি নির্বাচন করে কাজ শুরু করুন:")
+# Custom CSS for UI Design
+st.markdown("""
+    <style>
+    .main {
+        background-color: #f8f9fa;
+    }
+    .stButton>button {
+        background-color: #4CAF50;
+        color: white;
+        border-radius: 8px;
+        border: none;
+        padding: 8px 16px;
+        font-weight: bold;
+    }
+    .stButton>button:hover {
+        background-color: #45a049;
+    }
+    .card {
+        padding: 20px;
+        border-radius: 10px;
+        background-color: #ffffff;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-bottom: 15px;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# ফেসবুকের মতো উপরে মেনু ট্যাব তৈরি
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📂 ১. কম্বাইন ফাইল (Merge)", 
-    "✂️ ২. ডাটা স্প্লিট (Split)", 
-    "✏️ ৩. ডাটা ফিল্টার ও সর্টিং", 
-    "🏷️ ৪. কলাম রিনেম (Rename)",
-    "➕ ৫. নতুন কলাম বা ডাটা যোগ"
-])
+# --- Global Session State Initialization ---
+if 'active_df' not in st.session_state:
+    st.session_state['active_df'] = None
+if 'active_filename' not in st.session_state:
+    st.session_state['active_filename'] = "active_dataset"
 
-# ----------------------------------------------
-# ট্যাব ১: একাধিক এক্সেল ফাইল কম্বাইন
-# ----------------------------------------------
-with tab1:
-    st.subheader("একাধিক এক্সেল ফাইল একত্রিত করুন")
-    uploaded_files = st.file_uploader("আপনার ৫টি বা তার বেশি এক্সেল ফাইল একসাথে সিলেক্ট করুন:", type=["xlsx", "xls"], accept_multiple_files=True)
+# --- Universal File Reader Function ---
+def load_data(file):
+    if file is None:
+        return None
+    file_name = file.name.lower()
+    try:
+        if file_name.endswith('.csv'):
+            return pd.read_csv(file)
+        elif file_name.endswith(('.xlsx', '.xls')):
+            return pd.read_excel(file)
+        elif file_name.endswith('.pdf'):
+            all_tables = []
+            with pdfplumber.open(file) as pdf:
+                for page in pdf.pages:
+                    tables = page.extract_tables()
+                    for table in tables:
+                        if table and len(table) > 1:
+                            df_page = pd.DataFrame(table[1:], columns=table[0])
+                            all_tables.append(df_page)
+            if all_tables:
+                return pd.concat(all_tables, ignore_index=True)
+            else:
+                st.error("⚠️ No image PDFs are acceptable. Please upload text-based digital PDFs or Excel/CSV files.")
+                return None
+    except Exception as e:
+        st.error(f"Error reading file '{file.name}': {e}")
+        return None
+
+# --- PDF Export Utility Function ---
+def convert_df_to_pdf(df):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    elements = []
     
+    # Convert DataFrame to List format for ReportLab
+    data = [df.columns.tolist()] + df.astype(str).values.tolist()
+    
+    # Simple Table Styling
+    t = Table(data)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1f77b4')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0,0), (-1,0), 6),
+        ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#f2f2f2')),
+        ('GRID', (0,0), (-1,-1), 1, colors.grey)
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    return buffer.getvalue()
+
+# --- Universal Navigation & Download Component ---
+def render_workflow_and_downloads(df, current_module):
+    st.markdown("---")
+    st.subheader("📥 Download Processed File")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    # 1. Excel Download
+    out_excel = io.BytesIO()
+    with pd.ExcelWriter(out_excel, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+    col1.download_button("📥 Download Excel (.xlsx)", data=out_excel.getvalue(), file_name=f"{st.session_state['active_filename']}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    
+    # 2. CSV Download
+    out_csv = df.to_csv(index=False).encode('utf-8')
+    col2.download_button("📥 Download CSV (.csv)", data=out_csv, file_name=f"{st.session_state['active_filename']}.csv", mime="text/csv")
+    
+    # 3. PDF Download
+    try:
+        out_pdf = convert_df_to_pdf(df.head(50)) # Limits preview to top 50 rows for clean PDF layout
+        col3.download_button("📥 Download PDF (.pdf)", data=out_pdf, file_name=f"{st.session_state['active_filename']}.pdf", mime="application/pdf")
+    except Exception:
+        col3.info("PDF Export available for small datasets.")
+
+    # --- Cross-Module Transfer Workflow ---
+    st.markdown("---")
+    st.subheader("🔄 Transfer Active Data to Another Module")
+    st.caption("You don't need to re-upload this file! Select a module below to process this active data further:")
+    
+    modules = [
+        "📂 File Merger",
+        "✂️ Data Splitter",
+        "🔄 Format Converter",
+        "🛠️ Data Editor & Utilities",
+        "🔍 Filter & Sort",
+        "⚖️ Data Reconciliation"
+    ]
+    
+    # Exclude current module
+    available_modules = [m for m in modules if current_module not in m]
+    
+    target_module = st.selectbox("Choose Target Module:", available_modules, key=f"transfer_{current_module}")
+    if st.button("🚀 Transfer Data & Switch Module", key=f"btn_{current_module}"):
+        st.session_state['selected_menu'] = target_module
+        st.rerun()
+
+# --- Sidebar Navigation ---
+st.sidebar.title("📊 DataToolkit Pro")
+st.sidebar.markdown("---")
+
+menu_options = [
+    "🏠 Dashboard",
+    "📂 File Merger",
+    "✂️ Data Splitter",
+    "🔄 Format Converter",
+    "🛠️ Data Editor & Utilities",
+    "🔍 Filter & Sort",
+    "⚖️ Data Reconciliation"
+]
+
+if 'selected_menu' not in st.session_state:
+    st.session_state['selected_menu'] = "🏠 Dashboard"
+
+menu_option = st.sidebar.radio(
+    "Navigate Modules:",
+    menu_options,
+    index=menu_options.index(st.session_state['selected_menu'])
+)
+st.session_state['selected_menu'] = menu_option
+
+st.sidebar.markdown("---")
+if st.session_state['active_df'] is not None:
+    st.sidebar.success(f"🟢 Active Dataset Loaded\nRows: {st.session_state['active_df'].shape[0]} | Cols: {st.session_state['active_df'].shape[1]}")
+    if st.sidebar.button("Clear Active Memory"):
+        st.session_state['active_df'] = None
+        st.rerun()
+
+# ==========================================
+# 1. DASHBOARD
+# ==========================================
+if menu_option == "🏠 Dashboard":
+    st.title("⚡ Welcome to DataToolkit Pro")
+    st.markdown("A seamless, multi-module workspace to process, clean, split, convert, and reconcile spreadsheet data.")
+    st.markdown("---")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("<div class='card'><h3>📂 File Merger</h3>Combine multiple Excel, CSV, or PDF files into one master dataset.</div>", unsafe_allow_html=True)
+        st.markdown("<div class='card'><h3>✂️ Data Splitter</h3>Split large datasets into multiple structured files by categories.</div>", unsafe_allow_html=True)
+        st.markdown("<div class='card'><h3>🔄 Format Converter</h3>Convert mixed files freely between Excel, CSV, and PDF formats.</div>", unsafe_allow_html=True)
+    with col2:
+        st.markdown("<div class='card'><h3>🛠️ Data Editor & Utilities</h3>Add, remove, rename columns, clean duplicates, and run automated calculations.</div>", unsafe_allow_html=True)
+        st.markdown("<div class='card'><h3>🔍 Filter & Sort</h3>Quickly filter data conditions and sort records in ascending/descending order.</div>", unsafe_allow_html=True)
+        st.markdown("<div class='card'><h3>⚖️ Data Reconciliation</h3>Cross-match two files (e.g. Bank Statements vs Ledgers) to find discrepancies.</div>", unsafe_allow_html=True)
+
+# ==========================================
+# 2. FILE MERGER
+# ==========================================
+elif menu_option == "📂 File Merger":
+    st.title("📂 File Merger & Combiner")
+    uploaded_files = st.file_uploader("Upload files to merge (Minimum 2 files):", type=["xlsx", "xls", "csv", "pdf"], accept_multiple_files=True)
+
     if uploaded_files:
-        if st.button("ফাইলগুলো কম্বাইন করুন"):
-            all_df = [pd.read_excel(f) for f in uploaded_files]
-            combined_df = pd.concat(all_df, ignore_index=True)
-            
-            st.success("সফলভাবে কম্বাইন করা হয়েছে!")
-            st.dataframe(combined_df.head()) # প্রিভিউ
-            
-            # এক্সেল ডাউনলোড বাটন
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                combined_df.to_excel(writer, index=False)
-            st.download_button(label="📥 প্রসেসড এক্সেল ফাইল ডাউনলোড করুন", data=output.getvalue(), file_name="combined_master.xlsx")
+        if len(uploaded_files) < 2:
+            st.warning("⚠️ Please select at least 2 files to combine.")
+        else:
+            if st.button("Merge Files Now"):
+                data_list = [load_data(f) for f in uploaded_files if load_data(f) is not None]
+                if data_list:
+                    st.session_state['active_df'] = pd.concat(data_list, ignore_index=True)
+                    st.session_state['active_filename'] = "merged_dataset"
+                    st.success("Successfully Merged All Files!")
 
-# ----------------------------------------------
-# ট্যাব ২: কলাম অনুযায়ী ডাটা স্প্লিট
-# ----------------------------------------------
-with tab2:
-    st.subheader("ক্যাটাগরি অনুযায়ী ফাইল আলাদা (Split) করুন")
-    split_file = st.file_uploader("স্প্লিট করার এক্সেল ফাইলটি দিন:", type=["xlsx", "xls"], key="split")
+    if st.session_state['active_df'] is not None:
+        st.subheader("Active Data Preview")
+        st.dataframe(st.session_state['active_df'].head(10))
+        render_workflow_and_downloads(st.session_state['active_df'], "File Merger")
+
+# ==========================================
+# 3. DATA SPLITTER
+# ==========================================
+elif menu_option == "✂️ Data Splitter":
+    st.title("✂️ Data Splitter")
     
-    if split_file:
-        df_split = pd.read_excel(split_file)
-        split_column = st.selectbox("কোন কলামের ডাটা অনুযায়ী ফাইল ভাগ করবেন?", df_split.columns)
+    file = st.file_uploader("Upload new file (or use Active Memory below):", type=["xlsx", "xls", "csv", "pdf"])
+    if file:
+        st.session_state['active_df'] = load_data(file)
+        st.session_state['active_filename'] = "split_source"
+
+    df = st.session_state['active_df']
+    if df is not None:
+        st.dataframe(df.head(5))
+        split_col = st.selectbox("Select Column to Split By:", df.columns)
         
-        if st.button("ডাটা স্প্লিট করুন"):
-            unique_values = df_split[split_column].unique()
-            st.write(f"মোট {len(unique_values)} টি ক্যাটাগরিতে ভাগ করা হয়েছে:")
+        if st.button("Split File"):
+            unique_vals = df[split_col].dropna().unique()
+            st.success(f"Split into {len(unique_vals)} unique category files:")
+            for val in unique_vals:
+                sub_df = df[df[split_col] == val]
+                st.write(f"📁 **Category:** {val} ({len(sub_df)} rows)")
+        
+        render_workflow_and_downloads(df, "Data Splitter")
+    else:
+        st.info("Upload a file or transfer active data from another module.")
+
+# ==========================================
+# 4. FORMAT CONVERTER
+# ==========================================
+elif menu_option == "🔄 Format Converter":
+    st.title("🔄 Mixed Format Converter")
+    file = st.file_uploader("Upload PDF, CSV, or Excel file:", type=["pdf", "csv", "xlsx", "xls"])
+    if file:
+        st.session_state['active_df'] = load_data(file)
+        st.session_state['active_filename'] = "converted_dataset"
+
+    df = st.session_state['active_df']
+    if df is not None:
+        st.dataframe(df.head(10))
+        render_workflow_and_downloads(df, "Format Converter")
+    else:
+        st.info("Upload a file to convert formats.")
+
+# ==========================================
+# 5. DATA EDITOR & UTILITIES
+# ==========================================
+elif menu_option == "🛠️ Data Editor & Utilities":
+    st.title("🛠️ Data Editor & Management Hub")
+    file = st.file_uploader("Upload new file (or use Active Memory below):", type=["xlsx", "xls", "csv", "pdf"])
+    if file:
+        st.session_state['active_df'] = load_data(file)
+
+    df = st.session_state['active_df']
+    if df is None:
+        st.info("Please upload a file or transfer data from another module.")
+    else:
+        st.dataframe(df.head(5))
+        tab_rem, tab_dup, tab_add, tab_rename, tab_calc = st.tabs([
+            "🗑️ Remove Data", "👯 Deduplicate", "➕ Add Data", "✏️ Rename Columns", "🧮 Calculations"
+        ])
+
+        with tab_rem:
+            cols_to_drop = st.multiselect("Select Columns to Remove:", df.columns)
+            if st.button("Drop Selected Columns"):
+                st.session_state['active_df'] = df.drop(columns=cols_to_drop)
+                st.success("Columns removed!")
+                st.rerun()
+
+        with tab_dup:
+            dup_cols = st.multiselect("Select columns for duplicate check (Leave blank for all):", df.columns)
+            if st.button("Remove Duplicates"):
+                subset = dup_cols if dup_cols else None
+                st.session_state['active_df'] = df.drop_duplicates(subset=subset)
+                st.success("Duplicates Removed!")
+                st.rerun()
+
+        with tab_add:
+            new_col = st.text_input("New Column Name:")
+            default_val = st.text_input("Default Value:")
+            if st.button("Add Column"):
+                st.session_state['active_df'][new_col] = default_val
+                st.success(f"Column '{new_col}' added!")
+                st.rerun()
+
+        with tab_rename:
+            target_col = st.selectbox("Select Column to Rename:", df.columns)
+            new_name = st.text_input("Enter New Name:")
+            if st.button("Rename Column"):
+                st.session_state['active_df'] = df.rename(columns={target_col: new_name})
+                st.success("Column Renamed!")
+                st.rerun()
+
+        with tab_calc:
+            num_cols = df.select_dtypes(include=['float64', 'int64']).columns
+            if len(num_cols) > 0:
+                selected_num = st.selectbox("Select Numeric Column:", num_cols)
+                st.write(f"**Sum:** {df[selected_num].sum()} | **Average:** {df[selected_num].mean()}")
+
+        render_workflow_and_downloads(st.session_state['active_df'], "Data Editor")
+
+# ==========================================
+# 6. FILTER & SORT
+# ==========================================
+elif menu_option == "🔍 Filter & Sort":
+    st.title("🔍 Filter & Sort Dataset")
+    file = st.file_uploader("Upload new file (or use Active Memory):", type=["xlsx", "xls", "csv", "pdf"])
+    if file:
+        st.session_state['active_df'] = load_data(file)
+
+    df = st.session_state['active_df']
+    if df is not None:
+        sort_col = st.selectbox("Select Column to Sort By:", df.columns)
+        order = st.radio("Sort Order:", ["Ascending", "Descending"])
+        
+        if st.button("Sort Data"):
+            asc = True if order == "Ascending" else False
+            st.session_state['active_df'] = df.sort_values(by=sort_col, ascending=asc)
+            st.success("Data Sorted!")
+            st.rerun()
             
-            for val in unique_values:
-                filtered_df = df_split[df_split[split_column] == val]
-                st.write(f"👉 **{val}** (মোট রো: {len(filtered_df)})")
-                
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    filtered_df.to_excel(writer, index=False)
-                st.download_button(label=f"📥 {val}.xlsx ডাউনলোড", data=output.getvalue(), file_name=f"{val}.xlsx")
+        render_workflow_and_downloads(df, "Filter & Sort")
+    else:
+        st.info("Upload a file or transfer active data.")
 
-# ----------------------------------------------
-# ট্যাব ৩: ডাটা সর্টিং ও ফিল্টারিং
-# ----------------------------------------------
-with tab3:
-    st.subheader("ডাটা ছোট থেকে বড় (Ascending) বা বড় থেকে ছোট (Descending) সাজান")
-    sort_file = st.file_uploader("এক্সেল ফাইলটি দিন:", type=["xlsx", "xls"], key="sort")
-    
-    if sort_file:
-        df_sort = pd.read_excel(sort_file)
-        selected_col = st.selectbox("কোন কলাম ধরে সর্ট করবেন?", df_sort.columns)
-        sort_order = st.radio("কীভাবে সাজাবেন?", ["ছোট থেকে বড় (Ascending)", "বড় থেকে ছোট (Descending)"])
-        
-        if st.button("সর্ট করুন"):
-            is_asc = True if sort_order == "ছোট থেকে বড় (Ascending)" else False
-            sorted_df = df_sort.sort_values(by=selected_col, ascending=is_asc)
-            st.dataframe(sorted_df)
-            
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                sorted_df.to_excel(writer, index=False)
-            st.download_button(label="📥 সর্ট করা ফাইল ডাউনলোড", data=output.getvalue(), file_name="sorted_file.xlsx")
+# ==========================================
+# 7. DATA RECONCILIATION
+# ==========================================
+elif menu_option == "⚖️ Data Reconciliation":
+    st.title("⚖️ Data Reconciliation (Cross-Matching)")
+    col1, col2 = st.columns(2)
+    with col1:
+        f1 = st.file_uploader("Upload File 1 (Master):", type=["xlsx", "csv"])
+    with col2:
+        f2 = st.file_uploader("Upload File 2 (Statement):", type=["xlsx", "csv"])
 
-# ----------------------------------------------
-# ট্যাব ৪: কলামের নাম পরিবর্তন (Rename)
-# ----------------------------------------------
-with tab4:
-    st.subheader("কলামের নাম পরিবর্তন করুন")
-    rename_file = st.file_uploader("এক্সেল ফাইলটি দিন:", type=["xlsx", "xls"], key="rename")
-    
-    if rename_file:
-        df_ren = pd.read_excel(rename_file)
-        target_col = st.selectbox("যে কলামের নাম বদলাতে চান:", df_ren.columns)
-        new_name = st.text_input("নতুন নাম কী দিতে চান?")
-        
-        if st.button("নাম পরিবর্তন করুন"):
-            if new_name:
-                df_ren.rename(columns={target_col: new_name}, inplace=True)
-                st.success(f"'{target_col}' কলামটি পরিবর্তিত হয়ে '{new_name}' হয়েছে!")
-                st.dataframe(df_ren.head())
-                
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    df_ren.to_excel(writer, index=False)
-                st.download_button(label="📥 আপডেট ফাইল ডাউনলোড", data=output.getvalue(), file_name="renamed_file.xlsx")
+    if f1 and f2:
+        df1, df2 = load_data(f1), load_data(f2)
+        match_col1 = st.selectbox("Match Column File 1:", df1.columns)
+        match_col2 = st.selectbox("Match Column File 2:", df2.columns)
 
-# ----------------------------------------------
-# ট্যাব ৫: নতুন কলাম ও ডাটা যোগ করা
-# ----------------------------------------------
-with tab5:
-    st.subheader("এক্সেল ফাইলে নতুন কলাম বা ডাটা যোগ করুন")
-    add_file = st.file_uploader("এক্সেল ফাইলটি দিন:", type=["xlsx", "xls"], key="add")
-    
-    if add_file:
-        df_add = pd.read_excel(add_file)
-        col_title = st.text_input("নতুন কলামের নাম:")
-        col_value = st.text_input("কলামের ভেতরে যে ডাটা থাকবে (ডিফল্ট ভ্যালু):")
-        
-        if st.button("নতুন কলাম যোগ করুন"):
-            if col_title:
-                df_add[col_title] = col_value
-                st.success("নতুন কলাম যুক্ত করা হয়েছে!")
-                st.dataframe(df_add.head())
-                
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    df_add.to_excel(writer, index=False)
-                st.download_button(label="📥 প্রসেসড ফাইল ডাউনলোড", data=output.getvalue(), file_name="added_column_file.xlsx")
+        if st.button("Run Cross-Match"):
+            matched = df1[df1[match_col1].isin(df2[match_col2])]
+            st.session_state['active_df'] = matched
+            st.success(f"Matched Records: {len(matched)}")
+            st.dataframe(matched.head(5))
 
+    if st.session_state['active_df'] is not None:
+        render_workflow_and_downloads(st.session_state['active_df'], "Data Reconciliation")
 
 
 st.sidebar.write(f"Logged in as: **{user_email}**")
