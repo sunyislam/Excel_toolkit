@@ -123,14 +123,27 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS for UI Design
+# Custom CSS for UI Design (Dark/Light Mode Compatible)
 st.markdown("""
     <style>
-    .main {
-        background-color: #f8f9fa;
+    .card {
+        padding: 20px;
+        border-radius: 10px;
+        background-color: #1e293b;
+        border: 1px solid #334155;
+        margin-bottom: 15px;
+    }
+    .card h3 {
+        color: #38bdf8 !important;
+        margin-top: 0px;
+    }
+    .card p {
+        color: #f1f5f9 !important;
+        font-size: 14px;
+        margin-bottom: 0px;
     }
     .stButton>button {
-        background-color: #4CAF50;
+        background-color: #22c55e;
         color: white;
         border-radius: 8px;
         border: none;
@@ -138,17 +151,11 @@ st.markdown("""
         font-weight: bold;
     }
     .stButton>button:hover {
-        background-color: #45a049;
-    }
-    .card {
-        padding: 20px;
-        border-radius: 10px;
-        background-color: #ffffff;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        margin-bottom: 15px;
+        background-color: #16a34a;
     }
     </style>
 """, unsafe_allow_html=True)
+
 
 # --- Global Session State Initialization ---
 if 'active_df' not in st.session_state:
