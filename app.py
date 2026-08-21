@@ -172,7 +172,8 @@ def load_data(file):
         if file_name.endswith('.csv'):
             return pd.read_csv(file)
         elif file_name.endswith(('.xlsx', '.xls')):
-            return pd.read_excel(file)
+            # engine='openpyxl' ব্যবহার নিশ্চিত করা
+            return pd.read_excel(file, engine='openpyxl')
         elif file_name.endswith('.pdf'):
             all_tables = []
             with pdfplumber.open(file) as pdf:
@@ -185,11 +186,12 @@ def load_data(file):
             if all_tables:
                 return pd.concat(all_tables, ignore_index=True)
             else:
-                st.error("⚠️ No image PDFs are acceptable. Please upload text-based digital PDFs or Excel/CSV files.")
+                st.error("⚠️ No tabular data found in PDF.")
                 return None
     except Exception as e:
         st.error(f"Error reading file '{file.name}': {e}")
         return None
+
 
 # --- PDF Export Utility Function ---
 def convert_df_to_pdf(df):
