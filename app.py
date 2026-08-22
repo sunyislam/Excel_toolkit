@@ -106,8 +106,6 @@ if not is_paid_user:
         
     st.stop() # টাকা না দিলে মূল কোড লোড হবে না
 
-
-
 import streamlit as st
 import pandas as pd
 import io
@@ -438,51 +436,11 @@ elif menu_option == "🛠️ Data Editor & Utilities":
 # ==========================================
 # 6. FILTER & SORT
 # ==========================================
-elif menu_option == "🔍 Filter & Sort":
-    st.title("🔍 Filter & Sort Dataset")
-    file = st.file_uploader("Upload new file (or use Active Memory):", type=["xlsx", "xls", "csv", "pdf"])
-    if file:
-        st.session_state['active_df'] = load_data(file)
-
-    df = st.session_state['active_df']
-    if df is not None:
-        sort_col = st.selectbox("Select Column to Sort By:", df.columns)
-        order = st.radio("Sort Order:", ["Ascending", "Descending"])
-        
-        if st.button("Sort Data"):
-            asc = True if order == "Ascending" else False
-            st.session_state['active_df'] = df.sort_values(by=sort_col, ascending=asc)
-            st.success("Data Sorted!")
-            st.rerun()
-            
-        render_workflow_and_downloads(df, "Filter & Sort")
-    else:
-        st.info("Upload a file or transfer active data.")
 
 # ==========================================
 # 7. DATA RECONCILIATION
 # ==========================================
-elif menu_option == "⚖️ Data Reconciliation":
-    st.title("⚖️ Data Reconciliation (Cross-Matching)")
-    col1, col2 = st.columns(2)
-    with col1:
-        f1 = st.file_uploader("Upload File 1 (Master):", type=["xlsx", "csv"])
-    with col2:
-        f2 = st.file_uploader("Upload File 2 (Statement):", type=["xlsx", "csv"])
 
-    if f1 and f2:
-        df1, df2 = load_data(f1), load_data(f2)
-        match_col1 = st.selectbox("Match Column File 1:", df1.columns)
-        match_col2 = st.selectbox("Match Column File 2:", df2.columns)
-
-        if st.button("Run Cross-Match"):
-            matched = df1[df1[match_col1].isin(df2[match_col2])]
-            st.session_state['active_df'] = matched
-            st.success(f"Matched Records: {len(matched)}")
-            st.dataframe(matched.head(5))
-
-    if st.session_state['active_df'] is not None:
-        render_workflow_and_downloads(st.session_state['active_df'], "Data Reconciliation")
 
 
 st.sidebar.write(f"Logged in as: **{user_email}**")
