@@ -117,11 +117,6 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 from reportlab.lib import colors
 
 # --- Page Configuration & Styling ---
-st.set_page_config(
-    page_title="DataToolkit Pro",
-    page_icon="📊",
-    layout="wide"
-)
 
 # Custom CSS for UI Design (Dark/Light Mode Compatible)
 st.markdown("""
